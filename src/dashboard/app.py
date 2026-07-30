@@ -3,7 +3,9 @@
 Run: streamlit run src/dashboard/app.py
 """
 import json
+import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # streamlit runs this file directly, not via -m
@@ -12,8 +14,10 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from sqlalchemy import text as sql_text
 
 from src.anomaly.detect_anomalies import detect_anomalies
+from src.common.config import REPORTS_DIR
 from src.common.db import ENGINE
 from src.metrics.health_score import MIN_REVIEWS_FOR_HEADLINE, select_headline_weeks
 from src.recommendations.strategic_roadmap import build_roadmap
@@ -27,6 +31,50 @@ QUADRANT_COLORS = {"Fix Now": "#d62728", "Quick Wins": "#2ca02c", "Investigate D
 @st.cache_data(ttl=300)
 def load_table(query: str, params: dict | None = None) -> pd.DataFrame:
     return pd.read_sql(query, ENGINE, params=params or {})
+
+
+def update_alert_status(alert_id: int, new_status: str) -> None:
+    """The only write path from the dashboard back into the DB — deliberately
+    narrow (one column, one table) rather than a general-purpose editor, so
+    the dashboard stays a PM's working tool for triage state without
+    becoming a backdoor to edit analysis data."""
+    with ENGINE.begin() as conn:
+        conn.execute(sql_text("UPDATE alerts SET status = :status WHERE alert_id = :id"), {"status": new_status, "id": alert_id})
+    load_table.clear()
+
+
+def latest_report_path(ext: str):
+    candidates = sorted(REPORTS_DIR.glob(f"weekly_report_*.{ext}"), reverse=True)
+    return candidates[0] if candidates else None
+
+
+# Domain-generic words excluded from Voice of Customer word-frequency counts
+# on top of standard English stopwords — "zomato", "food", "order", etc.
+# would dominate every single category's top-words list and add no
+# discriminating signal (they say what the app IS, not what's WRONG).
+DOMAIN_STOPWORDS = {
+    "zomato", "app", "food", "order", "orders", "ordered", "ordering", "delivery", "delivered",
+    "deliver", "time", "good", "very", "much", "also", "get", "got", "one", "even", "still",
+    "please", "will", "can", "just", "not", "dont", "didnt", "im", "ive", "us", "using",
+}
+ENGLISH_STOPWORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had",
+    "do", "does", "did", "this", "that", "these", "those", "i", "you", "he", "she", "it", "we",
+    "they", "my", "your", "his", "her", "its", "our", "their", "me", "him", "them", "and", "or",
+    "but", "if", "then", "so", "because", "as", "until", "while", "of", "at", "by", "for", "with",
+    "about", "against", "between", "into", "through", "during", "before", "after", "above",
+    "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again",
+    "further", "no", "nor", "only", "own", "same", "too", "s", "t", "on", "in", "for",
+}
+ALL_STOPWORDS = DOMAIN_STOPWORDS | ENGLISH_STOPWORDS
+
+
+def top_words(texts: pd.Series, top_n: int = 15) -> pd.DataFrame:
+    counter = Counter()
+    for t in texts.dropna():
+        words = re.findall(r"[a-zA-Z]{3,}", str(t).lower())
+        counter.update(w for w in words if w not in ALL_STOPWORDS)
+    return pd.DataFrame(counter.most_common(top_n), columns=["word", "count"])
 
 
 @st.cache_data(ttl=300)
@@ -290,6 +338,69 @@ def page_alerts(selected_week, weeks_df):
                 except (TypeError, json.JSONDecodeError):
                     pass
 
+            st.divider()
+            status_options = ["open", "acknowledged", "resolved"]
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                new_status = st.selectbox(
+                    "Triage status", status_options,
+                    index=status_options.index(a["status"]) if a["status"] in status_options else 0,
+                    key=f"status_select_{a['alert_id']}",
+                )
+            with col2:
+                st.write("")
+                if st.button("Save", key=f"status_save_{a['alert_id']}", disabled=(new_status == a["status"])):
+                    update_alert_status(int(a["alert_id"]), new_status)
+                    st.success(f"Alert #{int(a['alert_id'])} marked **{new_status}**.")
+                    st.rerun()
+
+
+def page_voice_of_customer(selected_week, weeks_df):
+    st.title("Voice of Customer — Top Phrases")
+    st.caption(
+        "What customers actually say most often, per category — plain word-frequency counts (not an LLM "
+        "summary), with domain-generic words like 'zomato'/'app'/'order' filtered out since they'd dominate "
+        "every category without adding signal. Useful for spot-checking that a category's automated theme "
+        "matches what people are literally writing."
+    )
+
+    categories_df = load_table("SELECT DISTINCT c.name FROM categories c JOIN review_classifications rc ON rc.primary_category_id = c.category_id ORDER BY c.name")
+    if categories_df.empty:
+        st.warning("No classified reviews yet.")
+        return
+
+    category = st.selectbox("Category", categories_df["name"].tolist())
+
+    query = """
+        SELECT r.content_clean
+        FROM reviews r
+        JOIN review_classifications rc ON rc.review_id = r.review_id
+        JOIN categories c ON c.category_id = rc.primary_category_id
+        WHERE c.name = :category
+    """
+    params = {"category": category}
+    bounds = week_bounds(weeks_df, selected_week)
+    if bounds is not None:
+        start, end = bounds
+        query += " AND r.review_date >= :start AND r.review_date < :end"
+        params["start"] = str(start)
+        params["end"] = str(end)
+
+    texts = load_table(query, params)["content_clean"]
+    if texts.empty:
+        st.info("No reviews for this category in the selected window.")
+        return
+
+    words_df = top_words(texts, top_n=15)
+    if words_df.empty:
+        st.info("Not enough distinct words after filtering to show a meaningful chart.")
+        return
+
+    fig = px.bar(words_df.sort_values("count"), x="count", y="word", orientation="h",
+                 title=f"Top words in '{category}' reviews ({len(texts)} reviews)")
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption(f"Raw word-occurrence counts across {len(texts)} classified reviews in this category and window.")
+
 
 def page_root_cause(selected_week, weeks_df):
     st.title("Root Cause & Recommendations")
@@ -548,6 +659,7 @@ PAGES = {
     "Alerts": page_alerts,
     "Weekly Changes": page_weekly_changes,
     "Experiments": page_experiments,
+    "Voice of Customer": page_voice_of_customer,
     "Review Explorer": page_review_explorer,
 }
 
@@ -572,5 +684,15 @@ with st.sidebar:
             ),
         )
         selected_week = None if week_pick == "All time" else week_pick
+
+    st.divider()
+    st.subheader("Weekly Report")
+    st.caption("Download the latest generated report — the same thing you'd forward to a stakeholder.")
+    for fmt, ext, mime in [("PDF", "pdf", "application/pdf"), ("HTML", "html", "text/html"), ("Markdown", "md", "text/markdown")]:
+        path = latest_report_path(ext)
+        if path is not None:
+            st.download_button(f"Download {fmt}", data=path.read_bytes(), file_name=path.name, mime=mime, key=f"dl_{ext}")
+    if latest_report_path("pdf") is None:
+        st.caption("No report generated yet — run `python -m src.reports.weekly_report`.")
 
 PAGES[selected](selected_week, weeks_df)
