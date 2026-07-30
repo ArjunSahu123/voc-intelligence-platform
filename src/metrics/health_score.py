@@ -107,3 +107,35 @@ def compute_health_score(
         "trend_subscore": round(t, 1),
         "crash_subscore": round(x, 1),
     }
+
+
+# Below this many reviews, a week's avg_rating/health score is dominated by
+# small-sample noise rather than signal. This isn't arbitrary padding: Google
+# Play reviews go through spam/moderation checks before they're exposed via
+# the public API, so the most recent few days *always* look artificially
+# sparse at scrape time (observed directly in this project's data: ~600-900
+# reviews/day, then a cliff to 1-5/day for the days right before a scrape) —
+# it reflects indexing lag, not a real drop in review volume. Headlining
+# that sparse tail as "this week" would report noise as signal.
+MIN_REVIEWS_FOR_HEADLINE = 100
+
+
+def select_headline_weeks(weekly_df, min_reviews: int = MIN_REVIEWS_FOR_HEADLINE):
+    """Picks the (this_week, previous_week) rows to headline from a
+    weekly_metrics DataFrame, skipping trailing weeks below min_reviews
+    (the still-indexing tail) rather than reporting them as "current".
+
+    Returns (this_week_row, previous_week_row_or_None, excluded_tail_df).
+    Falls back to the single most recent row if NO week clears the
+    threshold (e.g. very early in the project's life) rather than raising.
+    """
+    sorted_df = weekly_df.sort_values("week_start_date")
+    qualifying = sorted_df[sorted_df["total_reviews"] >= min_reviews]
+    excluded_tail = sorted_df[~sorted_df.index.isin(qualifying.index) & (sorted_df["week_start_date"] > (qualifying["week_start_date"].max() if not qualifying.empty else sorted_df["week_start_date"].min()))]
+
+    if qualifying.empty:
+        qualifying = sorted_df
+
+    this_week = qualifying.iloc[-1]
+    previous_week = qualifying.iloc[-2] if len(qualifying) > 1 else None
+    return this_week, previous_week, excluded_tail

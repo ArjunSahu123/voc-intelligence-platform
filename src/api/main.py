@@ -18,6 +18,7 @@ from src.metrics.health_score import (
     crash_subscore,
     critical_subscore,
     rating_subscore,
+    select_headline_weeks,
     trend_subscore,
 )
 
@@ -40,11 +41,10 @@ def _df(query: str, params: dict | None = None) -> pd.DataFrame:
 
 @app.get("/latest-health")
 def latest_health():
-    weeks = _df("SELECT * FROM weekly_metrics ORDER BY week_start_date DESC LIMIT 2")
+    weeks = _df("SELECT * FROM weekly_metrics ORDER BY week_start_date")
     if weeks.empty:
         raise HTTPException(404, "No weekly_metrics computed yet.")
-    this_week = weeks.iloc[0]
-    last_week = weeks.iloc[1] if len(weeks) > 1 else None
+    this_week, last_week, excluded_tail = select_headline_weeks(weeks)
 
     classified = _df(
         "SELECT COUNT(*) AS n FROM review_classifications rc "
@@ -71,6 +71,7 @@ def latest_health():
         "critical_issue_count": int(this_week["critical_issue_count"]),
         "crash_mentions": int(this_week["crash_mentions"]),
         "previous_week_health_score": last_week["product_health_score"] if last_week is not None else None,
+        "still_indexing_tail_weeks": excluded_tail["week_start_date"].astype(str).tolist(),
     }
 
 

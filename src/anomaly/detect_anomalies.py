@@ -17,7 +17,14 @@ Methodology (documented per the project brief, not just implemented):
 - wow_growth_pct = week-over-week % change, needs only 1 prior week.
 - A z_score alone can flag noise from tiny categories (2 reviews -> 4 reviews
   is a 100% "spike" that means nothing). MIN_VOLUME_FOR_ALERT gates alerting
-  on absolute issue_count, not just the statistical score.
+  on absolute issue_count, not just the statistical score. That alone is
+  still not enough, though: a category can clear MIN_VOLUME_FOR_ALERT while
+  the WEEK it belongs to is itself tiny (e.g. 7 issues out of just 12 total
+  classified reviews that week — a swing driven entirely by small-sample
+  noise, observed directly in this project's data from Google Play's
+  review-indexing lag). MIN_CLASSIFIED_FOR_WEEK additionally gates on the
+  week's total classified volume (the denominator behind issue_pct), same
+  reasoning as MIN_REVIEWS_FOR_HEADLINE in health_score.py.
 
 This module only computes statistics and writes them back onto issue_trends
 / weekly_metrics; deciding which anomalies become Alert rows is
@@ -30,11 +37,13 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from src.common.db import ENGINE
 from src.common.models import IssueTrend
+from src.metrics.health_score import MIN_REVIEWS_FOR_HEADLINE
 
 Z_SCORE_WARNING_THRESHOLD = 2.0
 Z_SCORE_CRITICAL_THRESHOLD = 3.0
 MIN_VOLUME_FOR_ALERT = 5  # minimum issue_count in the week for a category anomaly to be actionable
 MIN_REVIEWS_FOR_RATING_ALERT = 30  # a week with fewer reviews than this can swing wildly on noise alone
+MIN_CLASSIFIED_FOR_WEEK = MIN_REVIEWS_FOR_HEADLINE  # same threshold health_score.py uses for "enough data"
 
 
 def _expanding_z_scores(series: pd.Series) -> pd.Series:
@@ -95,9 +104,14 @@ def detect_anomalies() -> dict:
     anomalies = []
 
     if not trend_stats.empty:
+        # Total classified reviews that week = sum of issue_count across all
+        # categories that week (every classified review has exactly one
+        # primary category).
+        classified_per_week = trend_stats.groupby("week_start_date")["issue_count"].transform("sum")
         flagged = trend_stats[
             (trend_stats["z_score"].abs() >= Z_SCORE_WARNING_THRESHOLD)
             & (trend_stats["issue_count"] >= MIN_VOLUME_FOR_ALERT)
+            & (classified_per_week >= MIN_CLASSIFIED_FOR_WEEK)
         ]
         for _, row in flagged.iterrows():
             severity = "critical" if abs(row["z_score"]) >= Z_SCORE_CRITICAL_THRESHOLD else "warning"

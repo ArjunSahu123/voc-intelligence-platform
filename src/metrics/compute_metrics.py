@@ -10,9 +10,23 @@ every review (rating requires no classification).
 
 Idempotent: re-running recomputes and upserts every week present in the
 data, so it can safely run after every classification batch.
+
+Week bucketing: TRAILING windows anchored to the most recent review in the
+dataset, not fixed Monday-Sunday calendar weeks. A calendar-week scheme
+truncates whatever week contains "now" to however many days have elapsed
+since that Monday — for a scrape that runs mid-week, the most recent
+(and most dashboard-visible) bucket ends up an arbitrary partial slice
+(e.g. 2 days' worth of reviews), which then reads as a wild swing in
+avg_rating/health score purely from small-sample noise, not a real signal.
+Anchoring windows to end at the latest scraped review instead means the
+"current" window is always a full WINDOW_DAYS-day period. The tradeoff:
+re-running the pipeline after new reviews arrive shifts every window's
+boundaries (since the anchor moves), so week_start_date values are not
+stable across runs the way calendar weeks would be — acceptable here
+because weekly_metrics/issue_trends are fully recomputed from raw reviews
+every run anyway, not incrementally appended to.
 """
 import argparse
-from datetime import timedelta
 
 import pandas as pd
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -22,11 +36,14 @@ from src.common.models import WeeklyMetric, IssueTrend
 from src.metrics.health_score import compute_health_score
 
 SEVERITY_WEIGHTS = {"low": 1, "medium": 2, "high": 4, "critical": 8}
+WINDOW_DAYS = 7
 
 
-def _week_start(d) -> pd.Timestamp:
-    d = pd.Timestamp(d).normalize()
-    return d - timedelta(days=d.weekday())
+def _assign_trailing_windows(review_dates: pd.Series, window_days: int = WINDOW_DAYS) -> pd.Series:
+    anchor = review_dates.max().normalize()
+    days_before_anchor = (anchor - review_dates.dt.normalize()).dt.days
+    window_idx = days_before_anchor // window_days
+    return anchor - pd.to_timedelta(window_idx * window_days + (window_days - 1), unit="D")
 
 
 def _load_joined() -> pd.DataFrame:
@@ -40,7 +57,7 @@ def _load_joined() -> pd.DataFrame:
         LEFT JOIN categories c ON c.category_id = rc.primary_category_id
     """
     df = pd.read_sql(query, ENGINE, parse_dates=["review_date"])
-    df["week_start_date"] = df["review_date"].apply(_week_start)
+    df["week_start_date"] = _assign_trailing_windows(df["review_date"])
     return df
 
 
@@ -80,7 +97,7 @@ def compute_weekly_metrics(df: pd.DataFrame) -> pd.DataFrame:
         )
         prev_negative_ratio = negative_ratio
 
-        week_end = week_start + timedelta(days=6)
+        week_end = week_start + pd.Timedelta(days=6)
         days_in_week = (min(week_end, df["review_date"].max()) - week_start).days + 1
         days_in_week = max(days_in_week, 1)
 

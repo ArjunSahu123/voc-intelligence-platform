@@ -1,3 +1,4 @@
+import pandas as pd
 import pytest
 
 from src.metrics.health_score import (
@@ -5,6 +6,7 @@ from src.metrics.health_score import (
     crash_subscore,
     critical_subscore,
     rating_subscore,
+    select_headline_weeks,
     trend_subscore,
 )
 
@@ -77,3 +79,44 @@ def test_compute_health_score_worst_case_is_zero():
         negative_ratio_last_week=0.1,
     )
     assert unhealthy["overall"] == 0.0
+
+
+def _weekly_df(rows):
+    return pd.DataFrame(rows)
+
+
+def test_select_headline_weeks_skips_sparse_trailing_week():
+    # Mirrors the real bug: a well-populated week followed by a near-empty
+    # trailing week caused by Google Play's review-indexing lag.
+    df = _weekly_df(
+        [
+            {"week_start_date": pd.Timestamp("2026-07-09"), "total_reviews": 300, "product_health_score": 85.0},
+            {"week_start_date": pd.Timestamp("2026-07-16"), "total_reviews": 4000, "product_health_score": 78.0},
+            {"week_start_date": pd.Timestamp("2026-07-23"), "total_reviews": 12, "product_health_score": 19.2},
+        ]
+    )
+    this_week, last_week, excluded_tail = select_headline_weeks(df, min_reviews=100)
+    assert this_week["week_start_date"] == pd.Timestamp("2026-07-16")
+    assert last_week["week_start_date"] == pd.Timestamp("2026-07-09")
+    assert len(excluded_tail) == 1
+    assert excluded_tail.iloc[0]["week_start_date"] == pd.Timestamp("2026-07-23")
+
+
+def test_select_headline_weeks_falls_back_when_nothing_qualifies():
+    df = _weekly_df([{"week_start_date": pd.Timestamp("2026-07-23"), "total_reviews": 5, "product_health_score": 40.0}])
+    this_week, last_week, excluded_tail = select_headline_weeks(df, min_reviews=100)
+    assert this_week["week_start_date"] == pd.Timestamp("2026-07-23")
+    assert last_week is None
+    assert excluded_tail.empty
+
+
+def test_select_headline_weeks_no_tail_when_latest_week_qualifies():
+    df = _weekly_df(
+        [
+            {"week_start_date": pd.Timestamp("2026-07-16"), "total_reviews": 4000, "product_health_score": 78.0},
+            {"week_start_date": pd.Timestamp("2026-07-23"), "total_reviews": 500, "product_health_score": 60.0},
+        ]
+    )
+    this_week, last_week, excluded_tail = select_headline_weeks(df, min_reviews=100)
+    assert this_week["week_start_date"] == pd.Timestamp("2026-07-23")
+    assert excluded_tail.empty

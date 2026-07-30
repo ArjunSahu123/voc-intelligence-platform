@@ -16,13 +16,14 @@ import pandas as pd
 from src.common.config import ACTIVE_LLM_API_KEY, REPORTS_DIR
 from src.common.db import ENGINE
 from src.common.llm_client import call_structured
+from src.metrics.health_score import select_headline_weeks
 
 MIN_ISSUE_VOLUME_FOR_TREND = 3  # ignore categories with too few classified reviews to trust wow_growth_pct
 
 
-def _latest_two_weeks() -> pd.DataFrame:
+def _all_weeks() -> pd.DataFrame:
     return pd.read_sql(
-        "SELECT * FROM weekly_metrics ORDER BY week_start_date DESC LIMIT 2", ENGINE, parse_dates=["week_start_date"]
+        "SELECT * FROM weekly_metrics ORDER BY week_start_date", ENGINE, parse_dates=["week_start_date"]
     )
 
 
@@ -77,12 +78,11 @@ def _llm_narrative(context: str) -> dict:
 
 
 def generate_report() -> str:
-    weeks = _latest_two_weeks()
+    weeks = _all_weeks()
     if weeks.empty:
         raise RuntimeError("No weekly_metrics found. Run compute_metrics.py first.")
 
-    this_week = weeks.iloc[0]
-    last_week = weeks.iloc[1] if len(weeks) > 1 else None
+    this_week, last_week, excluded_tail = select_headline_weeks(weeks)
 
     trends = _issue_trends_for_week(this_week["week_start_date"].date())
     trending_trusted = trends[trends["issue_count"] >= MIN_ISSUE_VOLUME_FOR_TREND]
@@ -105,6 +105,15 @@ def generate_report() -> str:
     narrative = _llm_narrative(context)
 
     lines = [f"# Weekly Product Report — Week of {this_week['week_start_date'].date()}\n"]
+
+    if not excluded_tail.empty:
+        tail_weeks = ", ".join(str(d.date()) for d in excluded_tail["week_start_date"])
+        lines.append(
+            f"_Note: {len(excluded_tail)} more recent week(s) starting {tail_weeks} are excluded from this "
+            "report's headline — Google Play's review-indexing lag means the most recent few days always "
+            "look artificially sparse at scrape time. They'll be included once review volume for those "
+            "weeks catches up in a later run._\n"
+        )
 
     lines.append("## Executive Summary\n")
     lines.append(narrative["executive_summary"] + "\n")
