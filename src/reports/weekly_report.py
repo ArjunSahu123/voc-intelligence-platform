@@ -72,7 +72,7 @@ def _llm_narrative(context: str) -> dict:
             pass
     return {
         "executive_summary": "Automated narrative unavailable this run (no LLM access) — see the tables below for the underlying numbers.",
-        "open_questions": ["Set an LLM provider API key (ANTHROPIC_API_KEY or GEMINI_API_KEY) to generate a narrative summary."],
+        "open_questions": ["Set an LLM provider API key (`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`) to generate a narrative summary."],
         "next_actions": ["Review the Biggest Issues and Alerts sections directly."],
     }
 
@@ -177,6 +177,35 @@ def generate_report() -> str:
     return "".join(lines)
 
 
+def html_from_markdown(md: str) -> str:
+    """Shared by main() here and src/automation/run_pipeline.py, so the HTML
+    (and therefore the PDF rendered from it) is identical regardless of which
+    entrypoint generated the report."""
+    return (
+        "<html><head><meta charset='utf-8'><title>Weekly Product Report</title>"
+        "<style>"
+        "body{font-family: Arial, Helvetica, sans-serif; margin: 2em; color:#222;}"
+        "h1{font-size:20px;} h2{font-size:16px; border-bottom:1px solid #ccc; padding-bottom:4px;}"
+        "table{border-collapse: collapse; width:100%; margin: 1em 0;}"
+        "th,td{border:1px solid #ccc; padding:6px 8px; text-align:left; font-size:12px;}"
+        "th{background:#f0f0f0;}"
+        "blockquote{color:#555; border-left:3px solid #ccc; margin:0.5em 0; padding-left:1em;}"
+        "</style></head><body>"
+        f"{markdown2.markdown(md, extras=['tables'])}</body></html>"
+    )
+
+
+def render_pdf(html_content: str, out_path) -> None:
+    """Pure-Python HTML->PDF (xhtml2pdf) — no external binary/system dependency,
+    which matters because this needs to run unattended on a scheduled task."""
+    from xhtml2pdf import pisa
+
+    with open(out_path, "wb") as f:
+        result = pisa.CreatePDF(html_content, dest=f)
+    if result.err:
+        raise RuntimeError(f"PDF generation failed with {result.err} error(s) for {out_path}.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate the weekly product report.")
     parser.add_argument("--out-dir", default=None)
@@ -189,15 +218,16 @@ def main():
     stamp = date.today().isoformat()
     md_path = out_dir / f"weekly_report_{stamp}.md"
     html_path = out_dir / f"weekly_report_{stamp}.html"
+    pdf_path = out_dir / f"weekly_report_{stamp}.pdf"
 
     md_path.write_text(md, encoding="utf-8")
-    html_path.write_text(
-        f"<html><head><meta charset='utf-8'><title>Weekly Product Report</title></head><body>"
-        f"{markdown2.markdown(md, extras=['tables'])}</body></html>",
-        encoding="utf-8",
-    )
+    html_content = html_from_markdown(md)
+    html_path.write_text(html_content, encoding="utf-8")
+    render_pdf(html_content, pdf_path)
+
     print(f"Wrote {md_path}")
     print(f"Wrote {html_path}")
+    print(f"Wrote {pdf_path}")
 
 
 if __name__ == "__main__":

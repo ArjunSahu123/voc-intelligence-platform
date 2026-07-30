@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from src.common.config import REPORTS_DIR
 from src.common.db import ENGINE, init_db
@@ -150,11 +151,13 @@ def recommendations(alert_id: int | None = None, limit: int = 20):
 
 
 @app.get("/report")
-def report(format: str = Query("markdown", enum=["markdown", "html"])):
-    ext = "md" if format == "markdown" else "html"
+def report(format: str = Query("markdown", enum=["markdown", "html", "pdf"])):
+    ext = {"markdown": "md", "html": "html", "pdf": "pdf"}[format]
     candidates = sorted(REPORTS_DIR.glob(f"weekly_report_*.{ext}"), reverse=True)
     if not candidates:
         raise HTTPException(404, f"No {ext} report has been generated yet. Run src/reports/weekly_report.py.")
+    if format == "pdf":
+        return FileResponse(candidates[0], media_type="application/pdf", filename=candidates[0].name)
     return {"path": str(candidates[0]), "content": candidates[0].read_text(encoding="utf-8")}
 
 

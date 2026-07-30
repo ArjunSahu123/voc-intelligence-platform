@@ -23,8 +23,7 @@ from src.metrics.compute_metrics import compute_issue_trends, compute_weekly_met
 from src.common.models import IssueTrend, WeeklyMetric
 from src.anomaly.detect_anomalies import detect_anomalies
 from src.alerts.generate_alerts import generate_alerts
-from src.reports.weekly_report import generate_report
-import markdown2
+from src.reports.weekly_report import generate_report, html_from_markdown, render_pdf
 
 
 def run_step(name: str, fn, *args, **kwargs):
@@ -103,11 +102,10 @@ def main():
         md = generate_report()
         stamp = date.today().isoformat()
         (REPORTS_DIR / f"weekly_report_{stamp}.md").write_text(md, encoding="utf-8")
-        (REPORTS_DIR / f"weekly_report_{stamp}.html").write_text(
-            f"<html><head><meta charset='utf-8'></head><body>{markdown2.markdown(md, extras=['tables'])}</body></html>",
-            encoding="utf-8",
-        )
-        return f"reports/weekly_report_{stamp}.md"
+        html_content = html_from_markdown(md)
+        (REPORTS_DIR / f"weekly_report_{stamp}.html").write_text(html_content, encoding="utf-8")
+        render_pdf(html_content, REPORTS_DIR / f"weekly_report_{stamp}.pdf")
+        return f"reports/weekly_report_{stamp}.{{md,html,pdf}}"
 
     summary.append(run_step("8. Generate weekly report", _report))
 

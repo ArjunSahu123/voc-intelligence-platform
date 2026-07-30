@@ -45,7 +45,7 @@ flowchart LR
     subgraph Consumption
         D --> K[FastAPI]
         D --> L[Streamlit Dashboard]
-        D --> M[Weekly Report<br/>Markdown + HTML]
+        D --> M[Weekly Report<br/>Markdown + HTML + PDF]
     end
     N[run_pipeline.py<br/>one command, cron-able] -.orchestrates.-> Ingestion
     N -.-> Processing
@@ -71,9 +71,9 @@ notebooks or CSVs that the dashboard/API/report don't also see.
 | Root Cause | `src/root_cause/root_cause_analysis.py` | Pulls affected reviews, Claude summarizes theme + quotes |
 | Recommend | `src/recommendations/generate_recommendations.py` | Product-thinking chain: cause → customer impact → business impact → fix |
 | Experiment | `src/experiments/ab_test_design.py` | Real two-proportion power analysis + Claude narrative |
-| Report | `src/reports/weekly_report.py` | Markdown + HTML weekly report |
+| Report | `src/reports/weekly_report.py` | Markdown + HTML + PDF weekly report |
 | API | `src/api/main.py` | FastAPI read layer over the DB |
-| Dashboard | `src/dashboard/app.py` | Streamlit, 9 pages, filterable review explorer |
+| Dashboard | `src/dashboard/app.py` | Streamlit, 11 pages incl. Strategic Roadmap + Root Cause story, filterable review explorer |
 | Automate | `src/automation/run_pipeline.py` | Runs all of the above in one command |
 
 ## Product Thinking, Not ML
@@ -225,6 +225,5 @@ at the end reports exactly what succeeded, what failed, and what was skipped.
 - Swap SQLite for the documented Postgres schema (`db/schema.sql`) and add connection pooling.
 - Switch anomaly baselines from expanding-window to trailing N-week windows once enough history exists.
 - Add a `dashboard_cache` writer (table already exists) so the API doesn't recompute aggregations live.
-- Wire PDF export via a headless HTML-to-PDF step for the weekly report.
 - Add a second ingestion adapter (App Store, or an internal support-ticket export) to prove out the
   "product-agnostic" claim with a second real data source.
