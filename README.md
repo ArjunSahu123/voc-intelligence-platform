@@ -228,38 +228,6 @@ metrics/anomaly detection/reporting from running against whatever was already cl
 
 ---
 
-## Resume Bullets
-
-- Identified an ambiguous, high-volume product problem (thousands of weekly customer reviews with no
-  scalable read-through process) and structured it into a repeatable analysis framework: journey-stage
-  classification, weighted health scoring, statistical anomaly detection, evidence-based root cause,
-  and data-backed recommendations.
-- Directed the design and build (using Claude Code as implementation partner) of an LLM-classification
-  pipeline across a 17-category product-journey taxonomy with severity/urgency/confidence scoring.
-- Caught and fixed a real small-sample statistical bias in the platform's own health-score and anomaly
-  detection logic before it reached the dashboard, tracing it to Google Play's review-indexing lag.
-- Designed a severity-vs-reach prioritization framework and a real two-proportion power-analysis
-  sample-size calculator, turning findings into rigorous, appropriately-sized A/B test proposals.
-- Shipped a normalized SQL schema, FastAPI service, and 11-page Streamlit dashboard on a public GitHub
-  repo and live deployment, with 40+ automated tests.
-
-## Interview Talking Points
-
-- **"Did you write this code yourself?"** I directed an AI coding assistant (Claude Code) to implement
-  it, under my product decisions — the taxonomy, the health-score weights, the prioritization
-  framework, and every recommendation are mine; I caught and fixed a real data bug myself before it
-  shipped. I'd rather be upfront about that split than have you assume otherwise.
-- **"Why isn't this sentiment analysis?"** Because a PM needs to know *where in the funnel* an issue
-  occurs, not whether the review sounds happy — a 5-star review can still name a checkout bug.
-- **"Why is your sample size so small?"** Free-tier API quota, as a student without a budget for a paid
-  plan — stated directly above, not hidden. The system is provider-agnostic specifically so a funded
-  version can scale without a rewrite.
-- **"What's the biggest limitation you'd flag yourself?"** The Play Store data source caps historical
-  depth at roughly two-to-three weeks for a high-volume app — documented rather than patched over.
-- **"Walk me through the Payment recommendation."** See "A Real Example" above — I can walk through the
-  full ambiguous-signal → structure → recommendation → experiment chain on any of the four real findings
-  in this repo.
-
 ## Future Improvements
 
 - Move to a paid LLM tier once available, to increase classification throughput and historical depth.
