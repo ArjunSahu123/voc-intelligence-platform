@@ -2,7 +2,9 @@
 __pycache__/
 *.pyc
 .env
-db/*.db
+# db/voc.db is intentionally NOT ignored: it's a small (~2.5MB) snapshot of
+# real classified review data, committed so the deployed dashboard has
+# something to show without re-running the full scrape+classify pipeline.
 data/raw/*.json
 data/raw/*.jsonl
 data/raw/*.csv
