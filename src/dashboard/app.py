@@ -54,6 +54,20 @@ def week_bounds(weeks_df: pd.DataFrame, selected_week):
     return row["week_start_date"], row["week_end_date"] + pd.Timedelta(days=1)
 
 
+def default_target_week(selected_week, weeks_df: pd.DataFrame):
+    """The week to show when the user hasn't picked one via the sidebar filter.
+
+    Must NOT be a bare `.max()` on whatever dates happen to be present — that
+    silently picks the sparse still-indexing tail week (see
+    health_score.select_headline_weeks) rather than the real headline week,
+    which is exactly the bug that made Weekly Changes look empty.
+    """
+    if selected_week is not None:
+        return selected_week
+    this_week, _, _ = select_headline_weeks(weeks_df)
+    return this_week["week_start_date"]
+
+
 def page_executive_overview(selected_week, weeks_df):
     st.title("Executive Overview")
     st.caption(
@@ -159,7 +173,7 @@ def page_issue_trends(selected_week, weeks_df):
         fig_hm = px.imshow(pivot, aspect="auto", color_continuous_scale="Reds", labels=dict(color="Severity Score"))
         st.plotly_chart(fig_hm, use_container_width=True)
 
-    target_week = selected_week if selected_week is not None else trends["week_start_date"].max()
+    target_week = default_target_week(selected_week, weeks_df)
     st.subheader(f"Week Detail — {pd.Timestamp(target_week).date()}")
     st.dataframe(trends[trends["week_start_date"] == target_week].sort_values("severity_score", ascending=False), use_container_width=True)
 
@@ -425,7 +439,7 @@ def page_weekly_changes(selected_week, weeks_df):
     if trends.empty:
         st.warning("No issue_trends yet.")
         return
-    target_week = selected_week if selected_week is not None else trends["week_start_date"].max()
+    target_week = default_target_week(selected_week, weeks_df)
     st.caption(f"Showing changes for week of {pd.Timestamp(target_week).date()} (categories with fewer than 3 classified issues are excluded as too noisy to trust)")
     latest = trends[(trends["week_start_date"] == target_week) & (trends["issue_count"] >= 3)]
 
