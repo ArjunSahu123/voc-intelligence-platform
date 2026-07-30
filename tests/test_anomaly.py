@@ -1,6 +1,11 @@
 import pandas as pd
 
-from src.anomaly.detect_anomalies import MIN_CLASSIFIED_FOR_WEEK, _expanding_z_scores
+from src.anomaly.detect_anomalies import (
+    MIN_CLASSIFIED_FOR_WEEK,
+    MIN_VOLUME_FOR_ALERT,
+    WOW_GROWTH_FALLBACK_THRESHOLD_PCT,
+    _expanding_z_scores,
+)
 from src.metrics.health_score import MIN_REVIEWS_FOR_HEADLINE
 
 
@@ -57,3 +62,69 @@ def test_sparse_week_flag_is_excluded_by_volume_gate():
     classified_per_week = full.groupby("week_start_date")["issue_count"].transform("sum")
     assert classified_per_week[full["week_start_date"] == pd.Timestamp("2026-07-23")].iloc[0] == 12
     assert (classified_per_week < MIN_CLASSIFIED_FOR_WEEK).any()
+
+
+def _apply_flagging(trend_stats: pd.DataFrame) -> pd.Series:
+    """Mirrors the OR-of-two-triggers logic in detect_anomalies() for unit testing without a DB."""
+    classified_per_week = trend_stats.groupby("week_start_date")["issue_count"].transform("sum")
+    volume_ok = (trend_stats["issue_count"] >= MIN_VOLUME_FOR_ALERT) & (classified_per_week >= MIN_CLASSIFIED_FOR_WEEK)
+    z_score_flag = trend_stats["z_score"].abs() >= 2.0
+    wow_fallback_flag = (
+        trend_stats["z_score"].isna()
+        & trend_stats["wow_growth_pct"].notna()
+        & (trend_stats["wow_growth_pct"].abs() >= WOW_GROWTH_FALLBACK_THRESHOLD_PCT)
+    )
+    return (z_score_flag | wow_fallback_flag) & volume_ok
+
+
+def test_wow_fallback_flags_real_growth_without_zscore_history():
+    # A young dataset (only 1 prior week) can't compute a z-score yet, but a
+    # +70% WoW jump in a well-populated category is still worth surfacing.
+    # A second category row is included so the week's total classified
+    # volume clears MIN_CLASSIFIED_FOR_WEEK (the gate is on TOTAL weekly
+    # volume, not any single category's count).
+    df = pd.DataFrame(
+        {
+            "week_start_date": pd.to_datetime(["2026-07-16", "2026-07-16"]),
+            "category_id": [1, 2],
+            "issue_count": [32, 100],
+            "issue_pct": [0.016, 0.05],
+            "z_score": [float("nan"), float("nan")],
+            "wow_growth_pct": [70.0, 5.0],
+        }
+    )
+    flagged = _apply_flagging(df)
+    assert flagged.iloc[0]
+    assert not flagged.iloc[1]  # only 5% growth, below the fallback threshold
+
+
+def test_wow_fallback_does_not_flag_small_growth():
+    df = pd.DataFrame(
+        {
+            "week_start_date": pd.to_datetime(["2026-07-16", "2026-07-16"]),
+            "category_id": [1, 2],
+            "issue_count": [32, 100],
+            "issue_pct": [0.016, 0.05],
+            "z_score": [float("nan"), float("nan")],
+            "wow_growth_pct": [10.0, 5.0],  # below the 30% fallback threshold
+        }
+    )
+    flagged = _apply_flagging(df)
+    assert not flagged.iloc[0]
+
+
+def test_wow_fallback_does_not_override_a_real_zscore():
+    # If a z-score IS available, the wow-fallback branch must not double-flag
+    # or interfere — the z-score path already handles it.
+    df = pd.DataFrame(
+        {
+            "week_start_date": pd.to_datetime(["2026-07-23", "2026-07-23"]),
+            "category_id": [1, 2],
+            "issue_count": [32, 100],
+            "issue_pct": [0.016, 0.05],
+            "z_score": [0.5, float("nan")],  # below warning threshold
+            "wow_growth_pct": [70.0, 5.0],  # would trip the fallback if z_score were NaN
+        }
+    )
+    flagged = _apply_flagging(df)
+    assert not flagged.iloc[0]

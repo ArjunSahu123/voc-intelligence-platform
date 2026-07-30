@@ -25,6 +25,17 @@ Methodology (documented per the project brief, not just implemented):
   review-indexing lag). MIN_CLASSIFIED_FOR_WEEK additionally gates on the
   week's total classified volume (the denominator behind issue_pct), same
   reasoning as MIN_REVIEWS_FOR_HEADLINE in health_score.py.
+- Fallback trigger when z_score is unavailable (fewer than 2 prior weeks of
+  history — true for any category in a deployment's first ~3 weeks):
+  WOW_GROWTH_FALLBACK_THRESHOLD_PCT flags a category whose issue_pct grew
+  by a large relative amount week-over-week, even without a full
+  statistical baseline. This is a deliberately weaker signal than a z-score
+  anomaly (no notion of "how unusual is this given historical variance"),
+  so it's capped at "warning" severity regardless of magnitude and tagged
+  with detection_method="wow_growth_fallback" so a PM can tell the two
+  apart. Without this, a real, sizable swing in a brand-new product's first
+  month would never surface until 3+ weeks of history accumulate — too
+  slow to be useful when it matters most.
 
 This module only computes statistics and writes them back onto issue_trends
 / weekly_metrics; deciding which anomalies become Alert rows is
@@ -44,6 +55,7 @@ Z_SCORE_CRITICAL_THRESHOLD = 3.0
 MIN_VOLUME_FOR_ALERT = 5  # minimum issue_count in the week for a category anomaly to be actionable
 MIN_REVIEWS_FOR_RATING_ALERT = 30  # a week with fewer reviews than this can swing wildly on noise alone
 MIN_CLASSIFIED_FOR_WEEK = MIN_REVIEWS_FOR_HEADLINE  # same threshold health_score.py uses for "enough data"
+WOW_GROWTH_FALLBACK_THRESHOLD_PCT = 30.0  # relative growth that flags a category when no z-score baseline exists yet
 
 
 def _expanding_z_scores(series: pd.Series) -> pd.Series:
@@ -108,22 +120,36 @@ def detect_anomalies() -> dict:
         # categories that week (every classified review has exactly one
         # primary category).
         classified_per_week = trend_stats.groupby("week_start_date")["issue_count"].transform("sum")
-        flagged = trend_stats[
-            (trend_stats["z_score"].abs() >= Z_SCORE_WARNING_THRESHOLD)
-            & (trend_stats["issue_count"] >= MIN_VOLUME_FOR_ALERT)
-            & (classified_per_week >= MIN_CLASSIFIED_FOR_WEEK)
-        ]
+        volume_ok = (trend_stats["issue_count"] >= MIN_VOLUME_FOR_ALERT) & (classified_per_week >= MIN_CLASSIFIED_FOR_WEEK)
+
+        z_score_flag = trend_stats["z_score"].abs() >= Z_SCORE_WARNING_THRESHOLD
+        wow_fallback_flag = (
+            trend_stats["z_score"].isna()
+            & trend_stats["wow_growth_pct"].notna()
+            & (trend_stats["wow_growth_pct"].abs() >= WOW_GROWTH_FALLBACK_THRESHOLD_PCT)
+        )
+
+        flagged = trend_stats[(z_score_flag | wow_fallback_flag) & volume_ok]
         for _, row in flagged.iterrows():
-            severity = "critical" if abs(row["z_score"]) >= Z_SCORE_CRITICAL_THRESHOLD else "warning"
+            has_z_score = pd.notna(row["z_score"])
+            if has_z_score:
+                severity = "critical" if abs(row["z_score"]) >= Z_SCORE_CRITICAL_THRESHOLD else "warning"
+                detection_method = "z_score"
+            else:
+                severity = "warning"  # wow-growth fallback is a weaker signal, never auto-escalated to critical
+                detection_method = "wow_growth_fallback"
+
             anomalies.append(
                 {
                     "type": "issue_spike",
                     "week_start_date": row["week_start_date"].date(),
                     "category_id": int(row["category_id"]),
-                    "z_score": round(float(row["z_score"]), 2),
+                    "z_score": round(float(row["z_score"]), 2) if has_z_score else None,
+                    "wow_growth_pct": round(float(row["wow_growth_pct"]), 1) if pd.notna(row["wow_growth_pct"]) else None,
                     "current_value": float(row["issue_pct"]),
                     "issue_count": int(row["issue_count"]),
                     "severity": severity,
+                    "detection_method": detection_method,
                 }
             )
 
@@ -140,9 +166,11 @@ def detect_anomalies() -> dict:
                     "week_start_date": row["week_start_date"].date(),
                     "category_id": None,
                     "z_score": round(float(row["rating_z_score"]), 2),
+                    "wow_growth_pct": None,
                     "current_value": float(row["avg_rating"]),
                     "issue_count": None,
                     "severity": severity,
+                    "detection_method": "z_score",
                 }
             )
 

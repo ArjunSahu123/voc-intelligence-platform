@@ -84,9 +84,16 @@ def analyze_root_cause(anomaly: dict) -> dict | None:
     review_text = "\n\n".join(
         f'(rating {r.rating}/5) "{r.content_clean[:400]}"' for r in reviews.itertuples()
     )
+    if anomaly.get("z_score") is not None:
+        stat_desc = f"z-score={anomaly['z_score']}"
+    else:
+        stat_desc = (
+            f"week-over-week growth={anomaly.get('wow_growth_pct')}% "
+            "(flagged by growth threshold, not enough history yet for a full statistical baseline)"
+        )
     prompt = (
         f"These are customer reviews behind a detected anomaly (type={anomaly['type']}, "
-        f"severity={anomaly['severity']}, z-score={anomaly['z_score']}):\n\n{review_text}\n\n"
+        f"severity={anomaly['severity']}, {stat_desc}):\n\n{review_text}\n\n"
         "Analyze based only on this evidence."
     )
 
