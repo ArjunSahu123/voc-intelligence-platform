@@ -1,0 +1,194 @@
+<html><head><meta charset='utf-8'><title>Weekly Product Report</title><style>body{font-family: Arial, Helvetica, sans-serif; margin: 2em; color:#222;}h1{font-size:20px;} h2{font-size:16px; border-bottom:1px solid #ccc; padding-bottom:4px;}table{border-collapse: collapse; width:100%; margin: 1em 0;}th,td{border:1px solid #ccc; padding:6px 8px; text-align:left; font-size:12px;}th{background:#f0f0f0;}blockquote{color:#555; border-left:3px solid #ccc; margin:0.5em 0; padding-left:1em;}</style></head><body><h1>Weekly Product Report — Week of 2026-07-30</h1>
+
+<h2>Executive Summary</h2>
+
+<p>Health score dropped sharply to 73.3/100 this week (down from 78.0) across 550 reviews, with an average rating of 3.83. General Feedback dominates the issue categories at 67.1%, signaling widespread, non-specific user dissatisfaction or confusion. Customer Support and Delivery Time tied as the second-largest specific pain points at 8.5% each, accompanied by 10 active open alerts requiring immediate triage.</p>
+
+<h2>Top Findings</h2>
+
+<ul>
+<li><strong>550 reviews</strong> this week, average rating <strong>3.83/5</strong></li>
+<li><strong>Product Health Score: 73.3/100</strong> (down from 78.0 last week)</li>
+<li><strong>10</strong> critical-severity issues, <strong>0</strong> crash mentions
+<h2>Biggest Issues</h2></li>
+</ul>
+
+<table>
+<thead>
+<tr>
+  <th>Category</th>
+  <th>Issue %</th>
+  <th>Severity Score</th>
+  <th>WoW Growth</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>General Feedback</td>
+  <td>67.1%</td>
+  <td>70.1</td>
+  <td>+34%</td>
+</tr>
+<tr>
+  <td>Customer Support</td>
+  <td>8.5%</td>
+  <td>33.2</td>
+  <td>+93%</td>
+</tr>
+<tr>
+  <td>Delivery Accuracy</td>
+  <td>5.5%</td>
+  <td>23.2</td>
+  <td>-73%</td>
+</tr>
+<tr>
+  <td>Delivery Time</td>
+  <td>8.5%</td>
+  <td>20.2</td>
+  <td>+39%</td>
+</tr>
+<tr>
+  <td>Refund</td>
+  <td>0.8%</td>
+  <td>5.0</td>
+  <td>-92%</td>
+</tr>
+<tr>
+  <td>Discovery / Restaurant Search</td>
+  <td>2.7%</td>
+  <td>3.7</td>
+  <td>+86%</td>
+</tr>
+<tr>
+  <td>Payment</td>
+  <td>1.2%</td>
+  <td>3.7</td>
+  <td>-15%</td>
+</tr>
+<tr>
+  <td>Coupons &amp; Offers</td>
+  <td>2.2%</td>
+  <td>3.2</td>
+  <td>+11%</td>
+</tr>
+</tbody>
+</table>
+
+<h2>Improving Metrics</h2>
+
+<ul>
+<li>Ordering: -94% week-over-week</li>
+<li>Refund: -92% week-over-week</li>
+<li>Delivery Accuracy: -73% week-over-week</li>
+<li>Payment: -15% week-over-week</li>
+</ul>
+
+<h2>Declining Metrics</h2>
+
+<ul>
+<li>Customer Support: +93% week-over-week</li>
+<li>Discovery / Restaurant Search: +86% week-over-week</li>
+<li>Delivery Time: +39% week-over-week</li>
+<li>General Feedback: +34% week-over-week</li>
+<li>Coupons &amp; Offers: +11% week-over-week</li>
+<li>Checkout: +7% week-over-week</li>
+</ul>
+
+<h2>Alerts &amp; Recommendations</h2>
+
+<h3>[CRITICAL] Fix Critical Customer Support Breakdown Caused by Unresponsive AI Chatbot</h3>
+
+<p>The critical spike in negative reviews is overwhelmingly driven by a complete breakdown in customer support and complaint resolution. Customers across multiple languages and use cases report being trapped by unresponsive AI chatbots, unable to reach human agents, and left with zero recourse or refunds for damaged food, missing items, financial waste, or account issues.</p>
+
+<p><strong>Suggested fix:</strong> Implement a mandatory, frictionless one-tap 'Escalate to Human Agent' button within the chat interface for unresolved issue types (e.g., missing items, refund denials) and disable auto-closing scripts on active dispute tickets.</p>
+
+<p><strong>Investigate:</strong> Audit chatbot intent-failure logs to identify the exact conversation turns where users are trapped or chats are forcibly closed without resolution.</p>
+
+<h3>[CRITICAL] Mitigate Delivery Partner Shortages, ETA Inaccuracies, and Extortion</h3>
+
+<p>The critical anomaly is driven by severe delivery delays, order cancellations, and unethical behavior by delivery partners (such as demanding extra charges). Customers report that delivery times are drastically underestimated at checkout and that a shortage of delivery partners causes long wait times and cold food.</p>
+
+<p><strong>Suggested fix:</strong> Implement strict hard caps on multi-order batching during peak hours, deploy an in-app reporting toggle to immediately flag and deactivate delivery partners demanding extra charges, and recalibrate checkout ETA algorithms to account for real-time rider supply constraints.</p>
+
+<p><strong>Investigate:</strong> Audit order dispatch logs to identify zones experiencing high rates of order bundling, extreme rider assignment delays, and repeat offender delivery partner IDs associated with extortion complaints.</p>
+
+<h3>[WARNING] Address Online Pricing Discrepancies and High Item Costs in Restaurant Search</h3>
+
+<p>The reviews reveal a dominant customer concern regarding high pricing and expensive items, with multiple users explicitly complaining about inflated online rates compared to venue prices. Additionally, there are complaints about limited city availability and a lack of popular restaurants on the platform.</p>
+
+<p><strong>Suggested fix:</strong> Implement a mandatory venue-pricing verification SLA, display a clear 'venue-verified price' badge, and add a quick-report flag for pricing discrepancies on restaurant listing pages.</p>
+
+<p><strong>Investigate:</strong> Audit pricing synchronization pipelines between partner venues and the online database to identify where markup or stale data occurs.</p>
+
+<h3>[WARNING] Inflated Menu Prices and Delivery Markups Causing Customer Churn</h3>
+
+<p>The dominant theme driving the anomaly is customer dissatisfaction regarding high menu prices on the platform compared to dine-in or real restaurant prices, exacerbated by additional delivery charges. Multiple users explicitly complained that items are overly expensive and marked up significantly on Zomato.</p>
+
+<p><strong>Suggested fix:</strong> Introduce a transparent price comparison UI tag (e.g. 'Dine-in price vs. Delivery price') and partner with top merchants to subsidize item markups or bundle delivery fees for orders above a specific threshold.</p>
+
+<p><strong>Investigate:</strong> Audit a random sample of top-performing restaurants in Discovery to quantify the exact markup delta between POS/dine-in menus and Zomato listings, segmented by cuisine and city.</p>
+
+<h3>[WARNING] Fix Zomato Gold Delivery Fee Discrepancies and Distance Radius Calculation</h3>
+
+<p>Customers are expressing widespread frustration regarding the Zomato Gold membership program, specifically citing unexpected delivery charges, inflated distances to disqualify free delivery perks, and hidden fees. Many users feel misled, alleging that the membership offers little to no actual savings compared to non-member accounts.</p>
+
+<p><strong>Suggested fix:</strong> Recalibrate the map distance algorithm to use straight-line or verified road-network paths for Gold benefit eligibility, and implement a transparent UI breakdown at checkout showing why a delivery fee was applied.</p>
+
+<p><strong>Investigate:</strong> Audit recent commits to the map routing/distance calculation service and review checkout transaction logs to identify orders where Gold members were incorrectly billed delivery fees within the standard free radius.</p>
+
+<h3>[WARNING] Performance Degradation, Tracking Failures, and Gboard Input Bugs</h3>
+
+<p>Customers are experiencing severe performance degradation, slow app speeds, and UI/usability issues. Multiple users specifically complain about order tracking failures, app lag, and text input bugs when trying to write feedback.</p>
+
+<p><strong>Suggested fix:</strong> Roll back or patch the latest release to fix UI rendering bottlenecks, optimize order tracking websocket/polling synchronization, and resolve the third-party keyboard focus bug.</p>
+
+<p><strong>Investigate:</strong> Inspect recent frontend rendering code for memory leaks, review order status API polling intervals, and test Gboard compatibility inside text-area components.</p>
+
+<h3>[WARNING] Investigate Critical App Crashes, Login Failures, and Payment Glitches</h3>
+
+<p>Customers are experiencing widespread app failure, including complete inability to log in, installation and download blocks, and general freezing or crashing. Additionally, specific functional glitches such as missing UPI payment options, group ordering redirect loops to the Play Store, and financial loss without refunds are driving severe user frustration.</p>
+
+<p><strong>Suggested fix:</strong> Roll back the unstable build immediately if stability cannot be hotfixed, deploy a patch fixing the deep link intent handling for group ordering, restore missing UPI payment gateway integrations in the checkout UI, and establish an expedited refund queue for affected transactions.</p>
+
+<p><strong>Investigate:</strong> Inspect crashlytics and error logs for the latest build deployment to identify the root cause of startup crashes, review recent changes to deep linking and intent configurations, and audit the checkout frontend for missing UPI UI components.</p>
+
+<h3>[WARNING] Refund Failures and Disabled Support Channels Driving Churn</h3>
+
+<p>Customers are experiencing extreme frustration over denied refunds, delayed orders, and missing food items, compounded by poor support channels. Multiple users explicitly state they are deleting the app and switching to competitors like Swiggy due to perceived unfairness and scams regarding cancellations.</p>
+
+<p><strong>Suggested fix:</strong> Re-enable inbound customer support calling for cancellation/refund disputes, and implement a grace period for auto-refunds on pre-fulfillment cancellations.</p>
+
+<p><strong>Investigate:</strong> Audit recent automated cancellation and refund rules in the payment gateway integration, and check support telephony logs for disabled call routing paths.</p>
+
+<h3>[WARNING] Prevent Unauthorized Delivery Partner Order Cancellations and False Excuse Claims</h3>
+
+<p>Customers are experiencing widespread frustration regarding sudden, unauthorized order cancellations by delivery partners and support staff. Key issues include late-night order failures, dishonest cancellation excuses (such as fake accident claims), and problematic cancellation fees and refund processes.</p>
+
+<p><strong>Suggested fix:</strong> Implement strict geofencing and app-based validation requiring delivery agents to submit photographic proof or GPS validation before a cancellation reason can be logged, and automate full refunds plus compensation waivers for orders cancelled by agents without customer consent.</p>
+
+<p><strong>Investigate:</strong> Audit delivery partner cancellation logs for the 00:00 to 05:00 time window to identify specific driver IDs, zones, and frequency of 'vehicle accident' or 'road blocked' excuse usage.</p>
+
+<h3>[CRITICAL] Fix Prepaid Delivery Fraud and Implement OTP Verification</h3>
+
+<p>Customers are experiencing severe issues with order fulfillment, specifically involving delivery partners marking prepaid orders as 'delivered' without actually delivering them or stealing the food. Additionally, users report receiving completely wrong items, missing food, and encountering unhelpful customer support chatbots that fail to resolve grievances or issue appropriate refunds.</p>
+
+<p><strong>Suggested fix:</strong> Implement a mandatory 4-digit OTP generated on the user's app that must be entered by the delivery partner to close prepaid orders, combined with an immediate bot-bypass routing rule to human agents for missing delivery claims.</p>
+
+<p><strong>Investigate:</strong> Analyze delivery partner telemetry (GPS timestamps vs. marked delivery locations) and isolate specific hub IDs or courier cohorts with high rates of 'delivered early' anomalies on prepaid orders.</p>
+
+<h2>Open Questions</h2>
+
+<ul>
+<li>What specific sub-topics are driving the 67.1% spike in General Feedback?</li>
+<li>Why did Customer Support (8.5%) and Delivery Time (8.5%) surge simultaneously this week?</li>
+<li>What specific incidents triggered the 10 open alerts and the 4.7-point drop in health score?</li>
+</ul>
+
+<h2>Next Actions</h2>
+
+<ul>
+<li>Triage and resolve the 10 open alerts within 24 hours to prevent further health score degradation.</li>
+<li>Perform a qualitative text analysis on the General Feedback category to isolate actionable product bugs or UX friction points.</li>
+<li>Review support ticket queues and delivery logistics logs to identify bottlenecks causing the concurrent spikes in support load and delivery delays.</li>
+</ul>
+</body></html>
